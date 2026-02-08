@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snap Memory 💛</title>
+  <style>
+    :root{
+      --bg1:#07070c;
+      --bg2:#141422;
+      --glass: rgba(255,255,255,.10);
+      --border: rgba(255,255,255,.14);
+      --text: #fff;
+      --muted: rgba(255,255,255,.76);
+      --muted2: rgba(255,255,255,.55);
+      --accent: #ff3f6f;
+      --snapYellow: #FFFC00;
+      --shadow: 0 18px 60px rgba(0,0,0,.48);
+      --good: #2ee59d;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      height:100vh;
+      overflow:hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Poppins", Arial, sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% 20%, #1b1b2a, transparent 55%),
+        radial-gradient(900px 600px at 80% 30%, #2a1724, transparent 60%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 12px;
+    }
+
+    /* effects layers */
+    canvas#petals{ position:fixed; inset:0; pointer-events:none; z-index:3; }
+    canvas#spark{ position:fixed; inset:0; pointer-events:none; z-index:2; }
+
+    /* phone shell */
+    .phone{
+      width:min(430px, 94vw);
+      height:min(840px, 92vh);
+      border-radius: 38px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+      z-index:4;
+      backdrop-filter: blur(14px);
+    }
+
+    /* top bar */
+    .topbar{
+      height: 64px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    }
+    .top-left{ display:flex; gap:10px; align-items:center; min-width: 160px; }
+    .avatar{
+      width:38px; height:38px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.14);
+      display:grid; place-items:center;
+      font-weight: 950;
+      letter-spacing:.2px;
+      position:relative;
+      box-shadow: 0 10px 25px rgba(0,0,0,.18);
+    }
+    .avatar::after{
+      content:"";
+      position:absolute;
+      bottom:-2px; right:-2px;
+      width:14px; height:14px;
+      border-radius:999px;
+      background: var(--good);
+      border: 2px solid rgba(0,0,0,.35);
+      box-shadow: 0 8px 18px rgba(46,229,157,.18);
+    }
+    .title{ display:flex; flex-direction:column; gap:2px; text-align:left; line-height:1.1; }
+    .title b{ font-size: 13.5px; }
+    .title span{ font-size: 12px; color: var(--muted2); }
+
+    .top-right{ display:flex; gap:10px; align-items:center; }
+    .pill{
+      font-size: 12px;
+      color: rgba(0,0,0,.88);
+      background: var(--snapYellow);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-weight: 950;
+      letter-spacing:.2px;
+      border: 1px solid rgba(255,255,255,.25);
+    }
+    .miniBadge{
+      font-size: 12px;
+      color: rgba(255,255,255,.78);
+      background: rgba(0,0,0,.22);
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(10px);
+    }
+
+    /* screens */
+    .screen{
+      position:absolute;
+      inset:64px 0 0 0;
+      padding: 18px 16px;
+      display:none;
+    }
+    .screen.active{ display:block; }
+
+    .card{
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.22);
+    }
+    .center{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      height: calc(100% - 12px);
+      gap: 14px;
+      text-align:center;
+    }
+    .snap-name{ font-size: 18px; font-weight: 980; letter-spacing:.2px; }
+    .sub{ color: var(--muted); font-size: 13.5px; line-height:1.35; }
+    .tiny{ color: rgba(255,255,255,.55); font-size:12px; }
+
+    .btnrow{
+      display:flex;
+      gap:12px;
+      width:100%;
+      justify-content:center;
+      margin-top: 10px;
+      flex-wrap:wrap;
+    }
+    button{
+      border:none;
+      cursor:pointer;
+      padding: 12px 16px;
+      border-radius: 999px;
+      font-weight: 980;
+      letter-spacing:.2px;
+      transition: transform .15s ease, filter .15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active{ transform: scale(.98); }
+    .btn-accept{ background: var(--snapYellow); color:#111; min-width: 165px; }
+    .btn-decline{
+      background: rgba(255,255,255,.12);
+      color: rgba(255,255,255,.92);
+      border: 1px solid rgba(255,255,255,.14);
+      min-width: 165px;
+    }
+
+    /* chat */
+    .chatWrap{ height: 100%; display:flex; flex-direction:column; gap: 10px; }
+    .chatHeader{ display:flex; align-items:center; justify-content:space-between; padding: 6px 6px 0; }
+    .chatWho{ display:flex; gap:10px; align-items:center; }
+    .smallAvatar{
+      width:28px;height:28px;border-radius:12px;
+      background: rgba(255,252,0,.14);
+      border: 1px solid rgba(255,252,0,.18);
+      display:grid; place-items:center;
+      font-weight:980;
+      letter-spacing:.2px;
+      color: rgba(255,255,255,.95);
+    }
+    .whoText b{ font-size: 14px; }
+    .whoText div{ font-size: 11.5px; color: rgba(255,255,255,.58); margin-top:2px; }
+
+    .dateLine{ font-size: 12px; color: rgba(255,255,255,.50); text-align:center; margin-top: 2px; }
+
+    .messages{ flex:1; overflow:hidden; display:flex; flex-direction:column; gap:10px; padding: 6px 2px; }
+    .msgRow{ display:flex; width:100%; }
+    .msg{
+      max-width: 78%;
+      padding: 10px 12px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height:1.25;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.10);
+      color: rgba(255,255,255,.92);
+      box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    }
+    .meta{ margin-top: 4px; font-size: 11px; color: rgba(255,255,255,.46); }
+    .me{ justify-content:flex-end; }
+    .me .msg{ background: rgba(255,252,0,.16); border-color: rgba(255,252,0,.22); }
+    .him{ justify-content:flex-start; }
+
+    .typingRow{
+      display:none;
+      justify-content:flex-start;
+      align-items:center;
+      gap:8px;
+      padding-left: 2px;
+      padding-bottom: 6px;
+    }
+    .typingBubble{
+      display:inline-flex;
+      gap:6px;
+      padding: 10px 12px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .dot{ width:7px; height:7px; border-radius:50%; background: rgba(255,255,255,.90); opacity:.25; animation: blink 1.1s infinite; }
+    .dot:nth-child(2){ animation-delay:.14s; }
+    .dot:nth-child(3){ animation-delay:.28s; }
+    @keyframes blink{
+      0%,100%{ opacity:.25; transform: translateY(0); }
+      50%{ opacity:.9; transform: translateY(-2px); }
+    }
+
+    .composer{
+      height: 64px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 12px;
+      border-top: 1px solid rgba(255,255,255,.10);
+      background: linear-gradient(0deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+    }
+    .inputFake{
+      flex:1;
+      height: 40px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+      display:flex;
+      align-items:center;
+      padding: 0 14px;
+      color: rgba(255,255,255,.55);
+      font-size: 13px;
+      text-align:left;
+    }
+    .send{
+      width:40px;height:40px;border-radius:999px;
+      background: var(--snapYellow);
+      color:#111;
+      font-weight:950;
+      display:grid;
+      place-items:center;
+    }
+
+    /* distance */
+    .distTitle{ font-size: 18px; font-weight: 980; }
+    .globe{
+      width: 100%;
+      height: 270px;
+      border-radius: 22px;
+      background:
+        radial-gradient(420px 240px at 50% 45%, rgba(255,255,255,.12), rgba(255,255,255,.06) 55%, rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.12);
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 18px 50px rgba(0,0,0,.25);
+      margin-top: 12px;
+    }
+    .grid{
+      position:absolute; inset:-30px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.06), rgba(255,255,255,0) 60%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, rgba(255,255,255,0) 1px 18px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, rgba(255,255,255,0) 1px 18px);
+      opacity:.55;
+      transform: rotate(12deg);
+      filter: blur(.2px);
+    }
+    .pin{
+      position:absolute;
+      width:10px;height:10px;border-radius:50%;
+      background: rgba(255,252,0,.95);
+      box-shadow: 0 0 0 6px rgba(255,252,0,.12), 0 18px 40px rgba(255,252,0,.10);
+    }
+    .pin.red{
+      background: rgba(255,63,111,.95);
+      box-shadow: 0 0 0 6px rgba(255,63,111,.12), 0 18px 40px rgba(255,63,111,.10);
+    }
+    .label{
+      position:absolute;
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.86);
+      backdrop-filter: blur(10px);
+      white-space:nowrap;
+    }
+    .arc{ position:absolute; inset:0; pointer-events:none; }
+    .arc svg{ width:100%; height:100%; }
+
+    .pulse{
+      position:absolute;
+      width:10px;height:10px;border-radius:50%;
+      background: rgba(255,255,255,.95);
+      filter: blur(.2px);
+      box-shadow: 0 10px 30px rgba(255,255,255,.10);
+    }
+
+    .tzRow{
+      width:100%;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top: 12px;
+    }
+    .tzCard{
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      text-align:left;
+    }
+    .tzCard b{ display:block; font-size: 13px; margin-bottom: 4px; }
+    .tzCard span{ font-size: 12.5px; color: rgba(255,255,255,.72); line-height:1.35; }
+
+    /* valentine */
+    .valCard h2{ margin:0 0 10px; font-size: 20px; letter-spacing:.2px; }
+    .valCard p{ margin:0 0 14px; color: rgba(255,255,255,.84); line-height:1.45; font-size: 14px; }
+
+    .choiceArea{
+      position:relative;
+      height: 76px;
+      margin-top: 10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 12px;
+    }
+    #yesBtn{
+      background: var(--accent);
+      color:white;
+      padding: 12px 22px;
+      box-shadow: 0 14px 34px rgba(255,63,111,.22);
+    }
+    #noBtn{
+      position:absolute;
+      left: 62%;
+      top: 16px;
+      background: rgba(255,255,255,.92);
+      color: var(--accent);
+      padding: 12px 22px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.22);
+      transform: translateX(0) scale(1);
+      will-change: left, top, transform;
+    }
+
+    .celebrate{
+      display:none;
+      margin-top: 14px;
+      font-weight: 980;
+      font-size: 18px;
+    }
+    .mini{ margin-top: 6px; font-size: 12.5px; color: rgba(255,255,255,.70); }
+
+    .finalNote{
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      line-height:1.35;
+      display:none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- subtle spark + flower shower layers -->
+  <canvas id="spark"></canvas>
+  <canvas id="petals"></canvas>
+
+  <div class="phone">
+    <div class="topbar">
+      <div class="top-left">
+        <div class="avatar">A</div>
+        <div class="title">
+          <b>Adriannnnnnn</b>
+          <span id="topStatus">Friend Request</span>
+        </div>
+      </div>
+      <div class="top-right">
+        <div class="miniBadge" id="miniTop">17 Oct 2025</div>
+        <div class="pill">Snap</div>
+      </div>
+    </div>
+
+    <!-- Screen 1: He receives your request -->
+    <section class="screen active" id="scrRequest">
+      <div class="center">
+        <div class="card" style="width:100%;">
+          <div class="snap-name">Incoming Friend Request</div>
+          <div class="sub" style="margin-top:8px;">
+            <b>Tithi Paul 🇩🇪</b> added you.
+            <div class="tiny" style="margin-top:6px;">Friday, <b>17 October 2025</b></div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn-accept" id="acceptBtn">Accept</button>
+            <button class="btn-decline" id="declineBtn">Ignore</button>
+          </div>
+
+          <div class="tiny" style="margin-top:10px;">
+            (Tap <b>Accept</b> 😌)
+          </div>
+        </div>
+
+        <div class="sub" style="max-width: 330px;">
+          A tiny “how it started” memory — from your side 💛
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 2: Chat day 1 (he says hi first) -->
+    <section class="screen" id="scrChat">
+      <div class="chatWrap">
+        <div class="chatHeader">
+          <div class="chatWho">
+            <div class="smallAvatar">T</div>
+            <div class="whoText">
+              <b>Tithi Paul 🇩🇪</b>
+              <div>online</div>
+            </div>
+          </div>
+          <div class="tiny">Chat</div>
+        </div>
+
+        <div class="dateLine">Friday, 17 October 2025</div>
+
+        <div class="messages" id="messages"></div>
+
+        <div class="typingRow" id="typingRow">
+          <div class="typingBubble" aria-label="typing">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="inputFake">Send a chat…</div>
+          <div class="send">➤</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 3: Distance / globe -->
+    <section class="screen" id="scrDistance">
+      <div class="center">
+        <div class="card" style="width:100%;">
+          <div class="distTitle">Landau ↔ San Antonio</div>
+          <div class="sub" style="margin-top:8px;">
+            Different countries. Big time gap.<br/>
+            Still… you kept talking.
+          </div>
+
+          <div class="globe">
+            <div class="grid"></div>
+
+            <!-- Landau pin -->
+            <div class="pin" style="left: 72%; top: 38%;"></div>
+            <div class="label" style="left: 58%; top: 26%;">Landau, Germany 🇩🇪</div>
+
+            <!-- San Antonio pin -->
+            <div class="pin red" style="left: 26%; top: 56%;"></div>
+            <div class="label" style="left: 10%; top: 64%;">San Antonio, Texas 🇺🇸</div>
+
+            <!-- Curved arc + moving pulse -->
+            <div class="arc">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 28 58 C 40 28, 62 22, 72 40" fill="none"
+                      stroke="rgba(255,255,255,.35)" stroke-width="1.2" stroke-linecap="round"/>
+                <path d="M 28 58 C 40 28, 62 22, 72 40" fill="none"
+                      stroke="rgba(255,252,0,.35)" stroke-width="2.2" stroke-linecap="round"
+                      stroke-dasharray="4 6" opacity=".65"/>
+              </svg>
+              <div class="pulse" id="pulse"></div>
+            </div>
+          </div>
+
+          <div class="tzRow">
+            <div class="tzCard">
+              <b>San Antonio</b>
+              <span id="tzSA">Late night → you text “still awake?”</span>
+            </div>
+            <div class="tzCard">
+              <b>Landau</b>
+              <span id="tzDE">Morning → she replies “just woke up 😭”</span>
+            </div>
+          </div>
+
+          <div class="tiny" style="margin-top:12px;">Tap to continue ➝</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 4: Valentine ask (Feb 2026) -->
+    <section class="screen" id="scrVal">
+      <div class="center">
+        <div class="card valCard" style="width:100%;">
+          <h2>From Tithi Paul 🇩🇪 💌</h2>
+          <p>
+            Remember <b>17 Oct 2025</b> — when you accepted her request?
+            <br><br>
+            Somewhere between San Antonio nights and Landau mornings…
+            you kept talking.
+            <br><br>
+            So now it’s <b>February 2026</b>…
+            <br><br>
+            <b>Adrian, will you be my Valentine?</b>
+          </p>
+
+          <div class="choiceArea" id="choiceArea">
+            <button id="yesBtn">Yes</button>
+            <button id="noBtn">No</button>
+          </div>
+
+          <div class="celebrate" id="celebrate">
+            AHHH OKAY 😭💛
+            <div class="mini">That’s… actually really sweet.</div>
+          </div>
+
+          <div class="finalNote" id="finalNote">
+            (This is the part where you smile and pretend you’re not smiling.)
+          </div>
+
+          <div class="mini" id="miniHint">Be honest 👀</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+  /* ---------------- helpers ---------------- */
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------------- screens ---------------- */
+  const topStatus = $('topStatus');
+  const miniTop = $('miniTop');
+
+  const scrRequest = $('scrRequest');
+  const scrChat = $('scrChat');
+  const scrDistance = $('scrDistance');
+  const scrVal = $('scrVal');
+
+  function show(screen){
+    [scrRequest, scrChat, scrDistance, scrVal].forEach(s => s.classList.remove('active'));
+    screen.classList.add('active');
+  }
+
+  $('declineBtn').addEventListener('click', (e) => {
+    e.currentTarget.textContent = "Nice try 😌";
+    e.currentTarget.style.filter = "brightness(1.07)";
+  });
+
+  $('acceptBtn').addEventListener('click', async () => {
+    topStatus.textContent = "Chat";
+    miniTop.textContent = "17 Oct 2025";
+    show(scrChat);
+    await playChat();
+    topStatus.textContent = "Distance";
+    miniTop.textContent = "Landau ↔ SA";
+    show(scrDistance);
+    setTimeout(() => { positionPulse(); }, 50);
+  });
+
+  scrDistance.addEventListener('click', () => {
+    topStatus.textContent = "Today";
+    miniTop.textContent = "Feb 2026";
+    show(scrVal);
+  });
+
+  /* ---------------- chat replay (his POV: he says hi first) ---------------- */
+  const messagesEl = $('messages');
+  const typingRow = $('typingRow');
+
+  const chatScript = [
+    {from:'him', text:"hi", meta:"Delivered"},
+    {from:'me',  text:"Hii 😭 okay that was fast", meta:"Opened"},
+    {from:'him', text:"You popped up and I was like… why not 😌", meta:"Opened"},
+    {from:'me',  text:"Snapchat is chaotic for this lol", meta:"Delivered"},
+    {from:'him', text:"You’re in Germany right?", meta:"Delivered"},
+    {from:'me',  text:"Yes — Landau 🇩🇪 and you’re in San Antonio?", meta:"Opened"},
+    {from:'him', text:"Yeah Texas 🇺🇸 time zones might be annoying though", meta:"Opened"},
+    {from:'me',  text:"We’ll manage. I like talking to you.", meta:"Opened"},
+  ];
+
+  function addMsg(from, text, meta){
+    const row = document.createElement('div');
+    row.className = 'msgRow ' + (from === 'me' ? 'me' : 'him');
+
+    const wrap = document.createElement('div');
+    const bubble = document.createElement('div');
+    bubble.className = 'msg';
+    bubble.textContent = text;
+
+    const metaEl = document.createElement('div');
+    metaEl.className = 'meta';
+    metaEl.textContent = meta || "";
+
+    wrap.appendChild(bubble);
+    wrap.appendChild(metaEl);
+    row.appendChild(wrap);
+    messagesEl.appendChild(row);
+  }
+
+  async function playChat(){
+    messagesEl.innerHTML = "";
+    for (let i=0;i<chatScript.length;i++){
+      typingRow.style.display = 'flex';
+      await sleep(520 + Math.random()*520);
+      typingRow.style.display = 'none';
+
+      const m = chatScript[i];
+      addMsg(m.from, m.text, m.meta);
+
+      await sleep(380 + Math.random()*520);
+    }
+    await sleep(500);
+  }
+
+  /* ---------------- distance screen pulse ---------------- */
+  function positionPulse(){
+    const globe = document.querySelector('.globe');
+    const pulse = $('pulse');
+    if(!globe || !pulse) return;
+
+    const rect = globe.getBoundingClientRect();
+    const startX = rect.width * 0.26;
+    const startY = rect.height * 0.56;
+    const endX = rect.width * 0.72;
+    const endY = rect.height * 0.38;
+
+    pulse.style.left = startX + "px";
+    pulse.style.top  = startY + "px";
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+
+    pulse.animate([
+      { transform:`translate(0px, 0px)`, opacity: 0 },
+      { opacity: 1, offset: 0.12 },
+      { transform:`translate(${dx}px, ${dy}px)`, opacity: 1, offset: 0.88 },
+      { transform:`translate(${dx}px, ${dy}px)`, opacity: 0 }
+    ], { duration: 2200, iterations: Infinity, easing: 'linear' });
+  }
+
+  // timezone vibe rotation (neutral wording)
+  const tzSA = $('tzSA');
+  const tzDE = $('tzDE');
+  const tzLines = [
+    ["Late night → you text “still awake?”", "Morning → reply comes in ☀️"],
+    ["Evening → quick check-in", "Morning → “good morning” energy"],
+    ["Weekend → random snap", "Weekday → a reply between lectures"],
+    ["You: “Texas weather is wild”", "Germany: “it’s freezing here 😭”"],
+  ];
+  let tzI = 0;
+  setInterval(() => {
+    tzI = (tzI + 1) % tzLines.length;
+    tzSA.textContent = tzLines[tzI][0];
+    tzDE.textContent = tzLines[tzI][1];
+  }, 2200);
+
+  /* ---------------- Valentine No button: shrink + runaway ---------------- */
+  const noBtn = $('noBtn');
+  const yesBtn = $('yesBtn');
+  const choiceArea = $('choiceArea');
+  const miniHint = $('miniHint');
+  const celebrate = $('celebrate');
+  const finalNote = $('finalNote');
+
+  let noScale = 1;
+
+  function moveAndShrinkNo(){
+    noScale = Math.max(0.30, noScale - 0.095);
+    noBtn.style.transform = `translateX(0) scale(${noScale})`;
+
+    const areaRect = choiceArea.getBoundingClientRect();
+    const btnRect = noBtn.getBoundingClientRect();
+    const padding = 6;
+
+    const maxX = areaRect.width - btnRect.width - padding;
+    const maxY = areaRect.height - btnRect.height - padding;
+
+    const x = clamp(Math.random() * maxX, padding, maxX);
+    const y = clamp(Math.random() * maxY, padding, maxY);
+
+    noBtn.style.left = x + "px";
+    noBtn.style.top  = y + "px";
+
+    if(noScale <= 0.55) miniHint.textContent = "No is getting shy… 😶";
+    if(noScale <= 0.42) miniHint.textContent = "You’re really trying to say no? 🤨";
+    if(noScale <= 0.34) miniHint.textContent = "Okay. Enough. Press Yes 😌";
+  }
+
+  noBtn.addEventListener('mouseenter', moveAndShrinkNo);
+  noBtn.addEventListener('click', moveAndShrinkNo);
+  noBtn.addEventListener('touchstart', (e) => { e.preventDefault(); moveAndShrinkNo(); }, {passive:false});
+
+  /* ---------------- Subtle spark layer (soft romantic) ---------------- */
+  const sparkCanvas = $('spark');
+  const sparkCtx = sparkCanvas.getContext('2d', { alpha:true });
+
+  function resizeSpark(){
+    sparkCanvas.width = innerWidth * devicePixelRatio;
+    sparkCanvas.height = innerHeight * devicePixelRatio;
+    sparkCanvas.style.width = innerWidth + "px";
+    sparkCanvas.style.height = innerHeight + "px";
+    sparkCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  addEventListener('resize', resizeSpark);
+  resizeSpark();
+
+  let sparkles = [];
+  for(let i=0;i<70;i++){
+    sparkles.push({
+      x: Math.random()*innerWidth,
+      y: Math.random()*innerHeight,
+      r: Math.random()*1.7 + 0.6,
+      a: Math.random()*0.5 + 0.15,
+      tw: Math.random()*0.02 + 0.01
+    });
+  }
+
+  function sparkTick(){
+    sparkCtx.clearRect(0,0,innerWidth,innerHeight);
+    for(const s of sparkles){
+      s.a += (Math.random()-0.5)*s.tw;
+      s.a = Math.max(0.08, Math.min(0.6, s.a));
+      sparkCtx.beginPath();
+      sparkCtx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      sparkCtx.fillStyle = `rgba(255,255,255,${s.a})`;
+      sparkCtx.fill();
+    }
+    requestAnimationFrame(sparkTick);
+  }
+  sparkTick();
+
+  /* ---------------- Flower shower (NO emojis, real petals) ---------------- */
+  const petalCanvas = $('petals');
+  const petalCtx = petalCanvas.getContext('2d', { alpha:true });
+
+  function resizePetals(){
+    petalCanvas.width = innerWidth * devicePixelRatio;
+    petalCanvas.height = innerHeight * devicePixelRatio;
+    petalCanvas.style.width = innerWidth + "px";
+    petalCanvas.style.height = innerHeight + "px";
+    petalCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  addEventListener('resize', resizePetals);
+  resizePetals();
+
+  let petals = [];
+  let petalsOn = false;
+
+  function makePetal(){
+    const size = Math.random()*10 + 10;
+    return {
+      x: Math.random()*innerWidth,
+      y: -20 - Math.random()*innerHeight*0.2,
+      vx: (Math.random()-0.5)*1.2,
+      vy: Math.random()*1.4 + 1.2,
+      rot: Math.random()*Math.PI*2,
+      vr: (Math.random()-0.5)*0.06,
+      size,
+      wob: Math.random()*0.02 + 0.01,
+      phase: Math.random()*Math.PI*2,
+      hue: 330 + Math.random()*25,  // pink-ish
+      light: 70 + Math.random()*10,
+      a: 0.9
+    };
+  }
+
+  function drawPetal(p){
+    // draw a little petal shape (oval-ish with a notch)
+    petalCtx.save();
+    petalCtx.translate(p.x, p.y);
+    petalCtx.rotate(p.rot);
+    petalCtx.scale(1, 1);
+
+    const w = p.size;
+    const h = p.size * 0.70;
+
+    // gradient fill
+    const g = petalCtx.createRadialGradient(0, -h*0.2, 1, 0, 0, w);
+    g.addColorStop(0, `hsla(${p.hue}, 85%, ${p.light+8}%, ${p.a})`);
+    g.addColorStop(1, `hsla(${p.hue-8}, 80%, ${p.light-8}%, ${p.a})`);
+
+    petalCtx.beginPath();
+    petalCtx.moveTo(0, -h);
+    petalCtx.bezierCurveTo(w*0.9, -h*0.6, w*0.9, h*0.6, 0, h);
+    petalCtx.bezierCurveTo(-w*0.9, h*0.6, -w*0.9, -h*0.6, 0, -h);
+    petalCtx.closePath();
+    petalCtx.fillStyle = g;
+    petalCtx.fill();
+
+    // subtle highlight
+    petalCtx.globalAlpha = p.a * 0.35;
+    petalCtx.strokeStyle = `hsla(${p.hue+8}, 90%, 90%, 1)`;
+    petalCtx.lineWidth = 1;
+    petalCtx.stroke();
+
+    petalCtx.restore();
+  }
+
+  function petalsTick(){
+    petalCtx.clearRect(0,0,innerWidth,innerHeight);
+    if(petalsOn){
+      // add new petals gradually
+      if(petals.length < 140 && Math.random() < 0.85){
+        petals.push(makePetal());
+      }
+    }
+
+    for(let i=petals.length-1;i>=0;i--){
+      const p = petals[i];
+      p.phase += p.wob;
+      p.x += p.vx + Math.sin(p.phase)*0.6;
+      p.y += p.vy;
+      p.rot += p.vr;
+
+      drawPetal(p);
+
+      if(p.y > innerHeight + 40){
+        petals.splice(i,1);
+      }
+    }
+
+    requestAnimationFrame(petalsTick);
+  }
+  petalsTick();
+
+  function startPetals(){
+    petalsOn = true;
+    // after a while, gently slow the shower
+    setTimeout(() => { petalsOn = false; }, 5200);
+  }
+
+  /* ---------------- YES button result ---------------- */
+  yesBtn.addEventListener('click', () => {
+    celebrate.style.display = 'block';
+    finalNote.style.display = 'block';
+    miniHint.textContent = "Okay… that was cute 😭💛";
+
+    yesBtn.disabled = true;
+    yesBtn.style.filter = "brightness(1.05)";
+    noBtn.style.pointerEvents = "none";
+    noBtn.style.opacity = "0.6";
+
+    startPetals();
+  });
+
+  // after YES: clicking anywhere adds a little burst of petals at the click
+  document.addEventListener('click', (e) => {
+    if(!yesBtn.disabled) return;
+    for(let k=0;k<10;k++){
+      const p = makePetal();
+      p.x = e.clientX + (Math.random()-0.5)*80;
+      p.y = e.clientY + (Math.random()-0.5)*40;
+      p.vx = (Math.random()-0.5)*2.2;
+      p.vy = Math.random()*1.6 + 0.8;
+      petals.push(p);
+    }
+  });
+</script>
+</body>
+</html>
